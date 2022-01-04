@@ -1,9 +1,9 @@
 # HLA-mutations-IAA-PNH
 
 export JAVA_HOME=/usr/java/jre1.8.0_058
-export PATH=$PATH:/mnt/c/Genomic/samtools-1.1
-export PATH=$PATH:/mnt/c/Genomic/picard-tools-1.119
-export PATH=$PATH:/mnt/c/Genomic/novocraft
+export PATH=$PATH: /samtools-1.1
+export PATH=$PATH: /picard-tools-1.119
+export PATH=$PATH: /novocraft
 
 HLA/IMGT database files: HLA.dat, hla_gen.fa, hla_nuc.fa, HLA alignments 
 
@@ -14,10 +14,24 @@ Current  pipeline for the mutational study of HLA region from target sequencing 
 
 This workflow is designed to identify both class I and II mutations, in One Sample mode or Tumor/Normal sample mode.
  
-Most of the softwares used are publicly available.
+Most of the softwares used are publicly available, except for Novoalign/Novocraft: http://www.novocraft.com/products/novoalign/
+This is a short read alignment tool, chosen for its versatility especially in highly polymorphic regions. Here the characteristics:
+
+Packed with unsurpassed features:
+Mapping with base quality values.
+Alignment quality scores using posterior alignment probability.
+Paired end alignment.
+Mismatches and gaps of up to 50% of read length.
+Use of ambiguous codes in reference sequences can be used to reduce allelic bias.
+Automatic base quality calibration.
+Handles single end and paired end reads up to 950bp/read.
+In built adapter trimming and base quality trimming.
+Option for amplicon primer trimming.
+
+
 A java based program has been built for point 2, 8 and 9
 
-Steps:
+Steps for the HLA mutational pipeline:
 
 1) 8-digit Allelic Inference
 
@@ -25,7 +39,8 @@ Steps:
 
 3) Index of reference (Picard/Samtool)
 
-4) Alignment to the reference with following criteria (Novoalign): Intermediate clipping, Multialignment, High Seed lenght, High Mismatch penalty
+4) Alignment to the reference with following criteria (Novoalign): Intermediate clipping, Multialignment, High Seed lenght, High Mismatch and gap penalty, Trimming
+   Alternatively other alignment tools can be used, if the combination of parameters listed above is respected, producing a reasonable depth. 
 
 5) GATK pipeline for post-alignment preprocessing (Samtool and Picard: sorting, Markduplicate, Add/Replace read group, Read calibration, Bam validation, Indexing)
 
