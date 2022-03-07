@@ -1,70 +1,207 @@
-# HLA-mutations-IAA-PNH
+# HLAmutAA pipeline for targeted exome and WGS samples
 
-export JAVA_HOME=/usr/java/jre1.8.0_058
-export PATH=$PATH: /samtools-1.1
-export PATH=$PATH: /picard-tools-1.119
-export PATH=$PATH: /novocraft
+1. DESCRIPTION
 
-HLA/IMGT database files: HLA.dat, hla_gen.fa, hla_nuc.fa, HLA alignments 
-
-
-
-
-Current  pipeline for the mutational study of HLA region from target sequencing data.
-
+Current  pipeline for the mutational study of HLA region from sequencing data.
 This workflow is designed to identify both class I and II mutations, in One Sample mode or Tumor/Normal sample mode.
- 
-Most of the softwares used are publicly available, except for Novoalign/Novocraft: http://www.novocraft.com/products/novoalign/
-This is a short read alignment tool, chosen for its versatility especially in highly polymorphic regions. Here the characteristics:
+Most of the softwares used are publicly available. A java based program has been built for automation of following steps 2, 8 and 9 (highlighted with an *).
 
-Packed with unsurpassed features:
-Mapping with base quality values.
-Alignment quality scores using posterior alignment probability.
-Paired end alignment.
-Mismatches and gaps of up to 50% of read length.
-Use of ambiguous codes in reference sequences can be used to reduce allelic bias.
-Automatic base quality calibration.
-Handles single end and paired end reads up to 950bp/read.
-In built adapter trimming and base quality trimming.
-Option for amplicon primer trimming.
-
-
-A java based program has been built for point 2, 8 and 9
-
-Steps for the HLA mutational pipeline:
-
+Main steps:
 1) 8-digit Allelic Inference
-
-2) Reference construction from HLA_gen/HLA_nuc Fasta files of IMGT/HLA database based on patient high resolution typing*
-
-3) Index of reference (Picard/Samtool)
-
-4) Alignment to the reference with following criteria (Novoalign): Intermediate clipping, Multialignment, High Seed lenght, High Mismatch and gap penalty, Trimming
-   Alternatively other alignment tools can be used, if the combination of parameters listed above is respected, producing a reasonable depth. 
-
-5) GATK pipeline for post-alignment preprocessing (Samtool and Picard: sorting, Markduplicate, Add/Replace read group, Read calibration, Bam validation, Indexing)
-
-6) Samtool Pileup
-
-7) Variant calling with Varscan (This variant caller can be used in Somatic or Tumor only mode). Identification of SNP or Indel from Pileup files and filtering process based on stringent criteria for coverage, Avg quality, pval, strands). Other variant callers can be used (Mutect, deepvariant, but varscan is more flexible in terms of parameter inputs)
-
-
-8) Filtering for polymorphisms and artefacts (i.e. misaligned reads from the other allele in the same locus).*
-
+2) Reference construction from HLA_gen/HLA_nuc Fasta files of IMGT/HLA database based on patient high resolution typing *
+3) Indexing of reference for each patient (Picard/Samtools)
+4) Alignment to the reference with following criteria (Novoalign): Intermediate clipping, Multialignment, High Seed lenght, High Mismatch penalty
+5) GATK pipeline for post-alignment preprocessing (Samtools and Picard: sorting, Markduplicate, Add/Replace read group, Read calibration, Bam validation, Indexing)
+6) Pileup with Samtools v0.1.16
+7) Variant calling (Varscan - This variant caller can be used in Somatic or Tumor only mode):
+Identification of SNP or Indel from Pileup files and filtering process based on stringent criteria for coverage, Avg quality, pval, strands). Other variant callers can be used (Mutect, deepvariant, but varscan is more flexible in terms of parameter inputs)
+8) Filtering for polymorphisms and artefacts (i.e. misaligned reads from the other allele in the same locus) *
 9) "Topographic" annotation based on the genomic sequences provided by the IMGT/HLA database *
+10) Functional prediction of the mutations:
+Evaluation of missense, in frame and frameshift mutations in exons. If mutation is located in UTR regions: computational prediction of transcription factor or miRNA binding sites. If mutation is located in introns: computational prediction of splicing sites proximity
 
-10) Functional prediction of the mutations.
+The filter of polymorphisms is applied to the already filtered variant calling output in order to identify only mutational events non reported in multialignment files provided by the IMGT/HLA database.
+Only mutations potentially desruptive are retained, meaning that point mutations in introns, if not affecting splicing sites, are discarded.
+Genomic positions are calculated based on the fasta reference corresponding to the mutated allele.
 
-Evaluation of missense, in frame and frameshift mutations in exons. 
-If mutation in UTR regions: computational prediction of transcription factor or miRNA binding sites
-If mutation in introns: computational prediction of splicing sites proximity.
+2. QUICK RUN
 
+There are 3 mandatory arguments:
+arg1. directory with samples for one kind of experiment (WGS or TARGETED sequencing - beware not to mix both in the same dir and use one separate dir for each). Have a look at 5a. to learn how to prepare files to put into your experiment directory
+arg2. number of samples to be run at the same time (roughly equal to the number parallel threads used). Default = 1, max = 29
+arg3. experiment type: WGS or TARGETED (case insensitive)
 
+Position yourself in installation dir, then launch the WGS pipeline:
+$ ./HLAmutAA.bash wgs_sample_dir 10 WGS
+or the TARGETED sequencing pipeline:
+$ ./HLAmutAA.bash targeted_sample_dir 5 targeted
 
-A java based program has been compiled for the automatization of points 2, 8 and 9. The filter of polymorphisms is applied to the already filtered variant calling output in order to identify only mutational events non reported in multialignment files provided by the IMGT/HLA database.
+Results will be placed in a subdir of wgs_sample_dir or targeted_sample_dir, one for each sample, along with a log file containing all verbose outputs for every steps of the analysis. A standard ouptut is generated to indicate the run progression for all analysed patients
 
-Only mutations potentially desruptive are retained (i.e point mutations in introns, if not affecting splicing sites, are discarded)
+3. REQUIREMENTS / DEPENDENCIES
 
-Genomic positions are calculated basing on the fasta reference corresponding to the mutated allele.
+a. Novocraft
+Novocraft can be found in the tools directory, where you can extract and install it (it is already compiled and ready to use for redhat/centos/... compatible linux). If compilation and/or activation is needed, please follow the instructions given with the tool.
 
+b. Samtools
+Samtools v0.1.16 is required for generating compatible pileups, one for each patients, that can be used in conjunction with VarScan in the further steps.
+It can be found at https://sourceforge.net/projects/samtools/files/samtools/0.1.16/
+Alternatively it can be found in the tools/ directory where you can extract and install it following the original INSTALL file instructions
 
+Samtools v1 (any version can do) is required for other bam management steps
+It can be found here: https://github.com/samtools/samtools/releases/download/1.15/samtools-1.15.tar.bz2
+
+c. VarScan
+Last VarScan jar files can be downloaded and installed from here: https://sourceforge.net/projects/varscan/files/
+Alternatively VarScan.v2.4.3.jar can be found in the tools directory and used directly by zeroing in the varscan variable in the HLAmutAA.conf file
+
+d. Picard
+Last version of Picard (jar file) can be downloaded and installed from here: https://broadinstitute.github.io/picard/
+
+e. HLA database files
+HLA/IMGT database files required: HLA.dat, hla_gen.fa, hla_nuc.fa, and HLA alignments/ directory.
+The HLAdb/ directory contains a zip file that must be unzipped there after download. It contains a recent version of the database and all the required files (current working version: 3.44). Please follow the same file structure if you want to update it, with all files matching the same HLA version. Everything can be downloaded from here: https://www.ebi.ac.uk/ipd/imgt/hla/download/.
+
+f. java automated tool for fasta parsing, HLA calls and variant annotation and filtering
+The jar file is located in the tools/ directory (current version: fasta-parser-0.0.17-OHCC.jar)
+
+4. PIPELINE INSTALLATION
+
+a. Main script
+A unique executable bash script is used to launch both WGS and targeted sequencing pipelines: HLAmutAA.bash. Its name can be changed, but in this case the accompanying mandatory configuration file HLAmutAA.conf must but renamed accordingly. 
+Verify that it is executable before launching it. If it is not, it can be set executable like this: $ chmod +x HLAmutAA.bash
+Please do not modify anything into this bash file unless you understand precisely what you are doing. Instead, changes for paths and analysis parameters that are configurable can be done by modifying the heading part of the HLAmutAA.conf file (see 4b.)
+
+b. Configuration / HLAmutAA.conf setup file
+Here is an example of what can be edited in the configuration file. This configuration assumes you are launching HLAmutAA.bash from a directory that contains tools/ and refsHLA/ dirs with the rightly installed and configured subdirectories, as described in 3.  
+
+## be careful to keep variable values into quotes - paths can be given as absolute (preferred) or relative
+# some tools/resources paths to set up
+export samtools="/usr/local/bin/samtools" # path to samtools executable, v1 and higher version
+export samtools0116="./tools/samtools-0.1.16" # path to samtools v0.1.16 executable, version required for Varscan
+export picard="/usr/local/bin/picard.jar" # path to installed picard jar file
+export varscan="./tools/VarScan.v2.4.3.jar" # path to installed VarScan jar file
+export novocraft="./tools/novocraft" # path to Novocraft installation directory
+export fastaParser="/home/chac/ngs/HLAmutAA/pipeline/tools/fasta-parser-0.0.17-OHCC.jar" # path to the java automated tool for steps 2, 8 and 9 (see description)
+export hlaDir="./HLAdb" # must contain hla.dat, hla_gen.fasta, hla_nuc.fasta and hla_nuc_master_xxx.txt files, and alignments/ dir, all from the same HLA version
+# do not change the next 4 variables if you are not comfortable with VarScan options for variant reporting and filtering
+export TARGETEDparamsA="--min-coverage 30 --min-reads2 10 --min-strands2 2 --min-avg-qual 30 --min-var-freq 0.02 --p-value 1e-03" # parameters for VarScan to analyse targeted exome pileups
+export TARGETEDparamsF="--min-coverage 30 --min-reads2 10 --min-strands2 2 --min-avg-qual 30 --min-var-freq 0.02 --p-value 1e-03" #  parameters for Varscan to filter targeted exome variants
+export WGSparamsA="--min-coverage 10 --min-reads2 3 --min-strands2 2 --min-avg-qual 30 --min-var-freq 0.02" # parameters for Varscan to analyse WGS (Whole Genome Sequencing) pileups
+export WGSparamsF="--min-coverage 10 --min-reads2 3 --min-strands2 1 --min-avg-qual 30 --min-var-freq 0.02" # parameters for Varscan to filter WGS variants
+
+5. RUNNING THE PIPELINE
+
+a. Preparing your files and experiments
+All files for all patients from one kind of experiment must be placed into the same directory (see examples in example_WGS_RUN/ and example_TARGETED_RUN/). So both directories can be set up, one for WGS and the other for targeted sequencing files.
+For a given patient, 3 files are awaited: file1 (unified report) file2 (fastq R1) and file3 (fastq R2)
+
+file1. A unified file containing the mutations reported for this patient at different loci. The pipeline is specifically looking for files with a .report_unified.txt extension and will run individually all files that it finds, assuming a different patient for each file.
+$ cat somePatient.report_unified.txt
+HLA-A   A*32:01:01:01   A*02:01:01:51
+HLA-B   B*44:02:01:01   B*15:01:01:01
+HLA-C   C*05:01:01:01   C*03:03:01:01
+HLA-DPA1        DPA1*02:01:01:01        DPA1*01:03:01:01
+HLA-DPB1        DPB1*09:01:01   DPB1*04:02:01:01
+HLA-DQA1        DQA1*05:01:01:01        DQA1*01:03:01:01
+HLA-DQB1        DQB1*02:01:01:01        DQB1*06:03:01:01
+HLA-DRB1        DRB1*03:01:01:01        DRB1*13:01:01:01
+HLA-DRB3        DRB3*01:01:02:01        DRB3*02:02:01:01 
+
+file2 and file3 are the FASTQ[.gz] files containing the paired-end read mates for the HLA region (R1 and R2, respectively).
+
+Follow and adapt this procedure to extract the HLA-region reads from entire WGS (whole genome) or WES (whole exome) BAM files and create R1/R2 fastq.gz :
+# Depedencies: Samtools and Bedtools (any versions)
+# hg19 - GRCh37: chr6:28,510,120-33,480,577
+# hg38 - GRCh38: chr6:28,477,797-33,448,354
+### Isolate human MHC region on chromosome 6 from WGS/WES samples
+samtools index -b someSample.WES.bam
+samtools view -h -b someSample.WES.bam chr6:28,510,120-33,480,577 > someSample.MHC.bam
+### Extract unmapped reads
+samtools view -b -f 4 someSample.WES.bam > someSample.unmap.bam
+samtools sort -T temp.SamplEsorted -O bam -@ 4 -o someSample.unmap.sorted.bam someSample.unmap.bam
+samtools sort -T temp.SamplEsorted -O bam -@ 4 -o someSample.MHC.sorted.bam someSample.MHC.bam
+### Merge bam files
+samtools merge -f someSample.merged.bam someSample.MHC.sorted.bam someSample.unmap.sorted.bam
+samtools index -b someSample.merged.bam
+### Create fastq.gz files for R1 and R2 read mates
+bedtools bamtofastq -i someSample.merged.bam -fq someSample.WES_HLA.R1.fastq -fq2 someSample.WES_HLA.R2.fastq
+gzip someSample.WES_HLA.R1.fastq someSample.WES_HLA.R2.fastq
+### Cleanup
+rm someSample.merged.bam someSample.unmap.bam someSample.MHC.bam someSample.MHC.sorted.bam someSample.unmap.sorted.bam
+
+File names nomenclature is as follows and must be observed to ensure correct pipeline behaviour: 
+$ ls -1 example_WGS_RUN/
+MLL_153276.R1.fastq.gz
+MLL_153276.R2.fastq.gz
+MLL_153276.report_unified.txt
+
+Observe that the sample name must be the exact same between the report_unified.txt file and the fastq files. A sample name is assumed to be at the beginning of the file name, and ends at the first dot '.' encoutered. Consequently no sample name can contain dots '.'
+Beware that sample name are case sensitive ! Paired-end fastq files containing the read mates for R1 and R2 direction will be found if they begin by the sample name followed by a dot '.' and then contain R1 or R2 somewhere followed by a dot '.' and then finish by fastq.gz
+
+b. WGS run
+$ ./HLAmutAA.bash example_WGS_RUN/ 1 wgs
+HLAmutAA.bash: starting execution
+****************************************
+        WGS SAMPLE MLL_153276
+****************************************
+*** MLL_153276 *** Creating directory example_WGS_RUN/MLL_153276 for handling this sample MLL_153276 outputs
+*** MLL_153276 *** Extracting fasta sequences for this sample
+*** MLL_153276 *** Indexing and aligning with Novocraft
+*** MLL_153276 *** Sorting, marking duplicates, annotating and computing read depth in the alignment file (bam)
+*** MLL_153276 *** Run VarScan in germline mode for SNPs and INDELs separately (with pileup from samtools0.1.16)
+*** MLL_153276 *** Filter SNPs and INDELs according to the HLA reference database and add topographical locations
+*** MLL_153276 *** Cleaning up
+*** MLL_153276 *** Finished with this sample
+MLL_153276 *** Check log file example_WGS_RUN/MLL_153276.log for verbose outputs
+HLAmutAA.bash: nothing more to do
+
+Reports and result files will then be found in example_WGS_RUN/MLL_153276/
+Notice that in this example MLL_153276 is the recognized sample name.
+Change the second argument to 10 if you have 30 patients configured in your experiment dir and want to run 10 patients at a time.
+
+c. Targeted run
+$ ./HLAmutAA.bash example_TARGETED_RUN/ 15 targeted > targeted_run.log
+
+The targeted run is set up and works in the exact same way as the WGS run.
+
+6. REPORT FILES AND RESULTS
+From the continued example WGS run:
+
+$ ls -1 example_WGS_RUN/MLL_153276
+MLL_153276.allele0.fasta		# fasta sequences extracted for this patient from the loci provided in the report_unified.txt file
+MLL_153276.allele0.fasta.fai		# indexed fasta by samtools
+MLL_153276.group.bam			# sorted, marked for duplicates, grouped, ... alignments obtained with novoalign
+MLL_153276.group.depth			# computed depth report from the bam file
+MLL_153276.group.pileup			# pileup obtained from the bam file with samtools v0.1.16 - required for Varscan variant calls
+MLL_153276.INDELs			# VarScan called INDELs, no filtering - step1
+MLL_153276.INDELs.filtered		# VarScan called INDELs, after the filtering step - step2
+MLL_153276.INDELs.mutInDelFilter	# MAIN REPORT TABLE: INDELs are finally filtered according to known HLA polymorphisms - step4 
+MLL_153276.INDELs.regions		# Add topographical locations and informations to the filtered INDELs - step3
+MLL_153276.novoindex			# indexed fasta for novoalign
+MLL_153276.SNPs				# VarScan called SNPs, no filtering - step1
+MLL_153276.SNPs.filtered		# VarScan called SNPs, after the filtering step - step2
+MLL_153276.SNPs.mutAlignFilter		# MAIN REPORT TABLE: SNPs are finally filtered according to known HLA polymorphisms - step4 
+MLL_153276.SNPs.regions			# Add topographical locations and informations to the filtered SNPs - step3
+MLL_153276.summary0.txt			# some summary about the loci found from the report_unified.txt file and extracted to the allele0.fasta file
+
+7. LOGS AND OUTPUTS
+From the continued targeted run:
+
+$ cat targeted_run.log
+HLAmutAA.bash: starting execution
+****************************************
+        TARGETED SAMPLE 16-HLA
+****************************************
+*** 16-HLA *** Creating directory example_TARGETED_RUN/16-HLA for handling this sample 16-HLA outputs
+*** 16-HLA *** Extracting fasta sequences for this sample
+*** 16-HLA *** Indexing and aligning with Novocraft
+*** 16-HLA *** Sorting, marking duplicates, annotating and computing read depth in the alignment file (bam)
+*** 16-HLA *** Run VarScan in germline mode for SNPs and INDELs separately (with pileup from samtools0.1.16)
+*** 16-HLA *** Filter SNPs and INDELs according to the HLA reference database and add topographical locations
+*** 16-HLA *** Cleaning up
+*** 16-HLA *** Finished with this sample
+16-HLA *** Check log file example_TARGETED_RUN/16-HLA.log for verbose outputs
+HLAmutAA.bash: nothing more to do
+
+Complete logs with verbose output from all steps and programs can be found in .log files for each patients, in the same directory than the report_unified and fastq files. All steps are decomposed into sections to enable comprehensive understanding of the complete workflow.
