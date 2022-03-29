@@ -94,10 +94,12 @@ export WGSparamsF="--min-coverage 10 --min-reads2 3 --min-strands2 1 --min-avg-q
 
 a. Preparing your files and experiments
 All files for all patients from one kind of experiment must be placed into the same directory (see examples in example_WGS_RUN/ and example_TARGETED_RUN/). So both directories can be set up, one for WGS and the other for targeted sequencing files.
-For a given patient, 3 files are awaited: file1 (unified report) file2 (fastq R1) and file3 (fastq R2)
+For a given patient, 3 files are awaited: file1 (HLA typing report) file2 (fastq R1) and file3 (fastq R2)
 
-file1. A unified file containing the mutations reported for this patient at different loci. The pipeline is specifically looking for files with a .report_unified.txt extension and will run individually all files that it finds, assuming a different patient for each file.
-$ cat somePatient.report_unified.txt
+file1. The report file containing the HLA typing information for a given patient. The pipeline specifically looks for files with a .report_unified.txt extension and will run individually all the files found, assuming a different patient or sample for each file.
+$ cat somePatient.report_unified.txt. HLA nomenclature must be 8-digit. This file at the moment should be manually created based on the typing information of the patient.
+The report file should look like this: 
+
 HLA-A   A*32:01:01:01   A*02:01:01:51
 HLA-B   B*44:02:01:01   B*15:01:01:01
 HLA-C   C*05:01:01:01   C*03:03:01:01
